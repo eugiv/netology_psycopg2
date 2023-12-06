@@ -20,54 +20,45 @@ class DBConnector:
             aws_dns = file['aws_dns']
             postgres_password = file['password']
 
-        with (SSHTunnelForwarder(
+        ec2_tunnel = SSHTunnelForwarder(
             (aws_dns, self.ssh_port),
             ssh_host_key=None,
             ssh_username=self.ssh_user,
             ssh_password=None,
             ssh_pkey='/Users/eugene_ivanov/AWS/EC2/linux_server/eug_linux_server_key.pem',
             remote_bind_address=(self.host, self.database_port))
-                as ec2_tunnel):
-            conn = pg.connect(
-                host=self.host,
-                port=ec2_tunnel.local_bind_port,
-                user=self.database_user,
-                database=self.database,
-                password=postgres_password)
+
+        ec2_tunnel.start()
+
+        conn = pg.connect(
+            host=self.host,
+            port=ec2_tunnel.local_bind_port,
+            user=self.database_user,
+            database=self.database,
+            password=postgres_password)
 
         return conn
+
 
 class CustomerDB:
     def __init__(self, db_connector: DBConnector):
         self.connector = db_connector
+        self.connection = None
+
+    def get_connection(self):
+        if self.connection is None or self.connection.closed !=0:
+            self.connection = self.connector.connection()
+        return self.connection
+
     def create_table(self):
-        print()
-        with self.connector.connection().cursor() as cur:
-            print(self.connector.connection())
-            cur.execute("CREATE TABLE test_table12 (id SERIAL PRIMARY KEY, name VARCHAR(40));")
-            self.connector.connection().commit()
+        conn = self.get_connection()
+
+        with conn.cursor() as cur:
+            cur.execute('DROP TABLE test_table;')
+            conn.commit()
 
 
 connection1 = DBConnector('sens.txt', 'localhost', 5432, 'ubuntu',
                           22, 'postgres', 'netology_psycopg2')
 db_run = CustomerDB(connection1)
 db_run.create_table()
-
-# with (SSHTunnelForwarder(
-#         ('xxxxxxxxxxxxxx.compute-1.amazonaws.com', 22),
-#         ssh_host_key=None,
-#         ssh_username='ubuntu',
-#         ssh_password=None,
-#         ssh_pkey='/Users/eugene_ivanov/AWS/EC2/linux_server/eug_linux_server_key.pem',
-#         remote_bind_address=('localhost', 5432))
-#         as ec2_tunnel):
-#     conn = pg.connect(
-#         host='localhost',
-#         port=ec2_tunnel.local_bind_port,
-#         user='postgres',
-#         database='netology_psycopg2',
-#         password='some password')
-#
-#     with conn.cursor() as cur:
-#         cur.execute('CREATE TABLE test_table1 (id SERIAL PRIMARY KEY, name VARCHAR(40));')
-#         conn.commit()
