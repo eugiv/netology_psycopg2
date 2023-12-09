@@ -41,11 +41,15 @@ class DBConnector:
 
 
 class CustomerDB:
-    def __init__(self, db_connector: DBConnector, customer_data, phone_data, change_data):
+    def __init__(self, db_connector: DBConnector, customer_data: list, phone_data: list, change_data: list,
+                 phone_delete: list, customer_delete: list, customer_find: list):
         self.connector = db_connector
         self.customer_data = customer_data
         self.phone_data = phone_data
         self.change_data = change_data
+        self.phone_delete = phone_delete
+        self.customer_delete = customer_delete
+        self.customer_find = customer_find
         self.connection = None
 
     def get_connection(self):
@@ -57,8 +61,8 @@ class CustomerDB:
         conn = self.get_connection()
 
         with conn.cursor() as cur:
-            cur.execute('DROP TABLE phones;')
-            cur.execute('DROP TABLE customers;')
+            # cur.execute('DROP TABLE phones;')
+            # cur.execute('DROP TABLE customers;')
             cur.execute('CREATE TABLE IF NOT EXISTS customers '
                         '(id SERIAL PRIMARY KEY,'
                         'first_name VARCHAR(60) NOT NULL,'
@@ -72,15 +76,25 @@ class CustomerDB:
 
             conn.commit()
 
-    def db_interaction(self, query, data):
+    def db_interaction(self, query, data=None):
         conn = self.get_connection()
         with conn.cursor() as cur:
-            cur.executemany(query, data)
-            conn.commit()
+            if 'select' not in query.lower():
+                try:
+                    cur.executemany(query, data)
+                    conn.commit()
+                except Exception as e:
+                    print(e)
+                    conn.commit()
+            else:
+                cur.execute(query, data)
+                return cur.fetchall()
 
     def add_customer(self):
-        query = 'INSERT INTO customers(first_name, last_name, email) VALUES (%s, %s, %s);'
-        self.db_interaction(query, self.customer_data)
+        if self.customer_data:
+            query = 'INSERT INTO customers(first_name, last_name, email) VALUES (%s, %s, %s);'
+            self.db_interaction(query, self.customer_data)
+
 
     def add_phone(self):
         if self.phone_data:
@@ -96,22 +110,29 @@ class CustomerDB:
                 try:
                     self.db_interaction(query, [x[counter] for x in self.change_data])
                     counter += 1
-                except Exception as e:
+                except:
                     pass
 
+    def delete_phone(self):
+        if self.phone_delete:
+            query = 'DELETE FROM phones WHERE phone_id=%s;'
+            self.db_interaction(query, self.phone_delete)
 
+    def delete_customer(self):
+        if self.customer_delete:
+            query = 'DELETE FROM customers WHERE id=%s;'
+            self.db_interaction(query, self.customer_delete)
 
-connection1 = DBConnector('sens.txt', 'localhost', 5432, 'ubuntu',
-                          22, 'postgres', 'netology_psycopg2')
+    def find_customer(self):
+        if self.customer_find:
+            fetched_data_lst = []
+            for req in self.customer_find:
+                query = ('SELECT first_name, last_name, email, cell_phone FROM customers c '
+                         'LEFT JOIN phones p ON c.id=p.customer_id '
+                         'WHERE first_name=%s OR last_name=%s OR email=%s OR cell_phone=%s;')
+                fetched_data = self.db_interaction(query, (req, req, req, req))
+                fetched_data_lst.extend(fetched_data)
 
-cust_data = [('Ivan', 'Ivanov', 'ivan@ivanov.com'), ('Petr', 'Petrov', 'petr@petrov.com'),
-             ('John', 'Wayne', 'john@wayne.com')]
-phn_data = [('12-34', 1), ('23-45', 1), ('67-89', 3)]
-
-data_to_change = [[('Semen', 'Kotov', 'semen@kotov.com', 1), ('88-88', 1)]]
-db_run = CustomerDB(connection1, cust_data, phn_data, data_to_change)
-
-db_run.create_db()
-db_run.add_customer()
-db_run.add_phone()
-db_run.change_customer()
+            fetched_data_lst = [', '.join(str(item) for item in tpl) for tpl in fetched_data_lst]
+            print('Your search request has been fulfilled: ', fetched_data_lst)
+            return fetched_data_lst
