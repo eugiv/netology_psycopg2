@@ -4,7 +4,7 @@ from psycopg_classes_functions import DBConnector, CustomerDB
 cust_data = [('Ivan', 'Ivanov', 'ivan@ivanov.com'), ('Petr', 'Petrov', 'petr@petrov.com'),
              ('John', 'Wayne', 'john@wayne.com')]
 phn_data = [('12-34', 1), ('23-45', 1), ('67-89', 3)]
-data_to_change = [[('Semen', 'Kotov', 'semen@kotov.com', 1), ('88-88', 1)]]
+data_to_change = [[('Semen', 'Kotov', None, 1), ('88-88', 1)]]
 phn_del = ['3']
 cust_del = []
 cust_find = ['Semen', 'john@wayne.com']

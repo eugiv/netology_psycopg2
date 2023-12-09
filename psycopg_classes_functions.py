@@ -102,11 +102,13 @@ class CustomerDB:
             self.db_interaction(query, self.phone_data)
 
     def change_customer(self):
-        queries = ['UPDATE customers SET first_name=%s, last_name=%s, email=%s WHERE id= %s;',
+        queries = ['UPDATE customers SET first_name=COALESCE(%s, first_name), last_name=COALESCE(%s, last_name), '
+                   'email=COALESCE(%s, email) WHERE id=%s;',
                    'UPDATE phones SET cell_phone=%s WHERE phone_id= %s;']
         if self.change_data:
             counter = 0
             for query in queries:
+
                 try:
                     self.db_interaction(query, [x[counter] for x in self.change_data])
                     counter += 1
